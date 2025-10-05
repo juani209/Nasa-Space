@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>BloomWatch Argentina - Interactive (JSON)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Inter", system-ui, Arial, sans-serif;
+      background: #F5F5F5;
+      color: #283B0A;
+      line-height: 1.5;
+
+    }
+
+    header {
+      background: #ffd8f3;
+      padding: 1.25rem;
+      text-align: center;
+      font-weight: 700;
+      color: #5E891B;
+      border-bottom: 1px solid #eee;
+      font-size: 1.6rem;
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 1rem auto;
+      padding: 0 1rem;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: transform .2s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+    }
+
+    .card img {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+    }
+
+    .card-body {
+      padding: 1rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-title {
+      font-weight: 600;
+      color: #283B0A;
+      margin-bottom: 6px;
+    }
+
+    .card-desc {
+      font-size: 0.9rem;
+      color: #444;
+      flex: 1;
+    }
+
+    .etapa {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      display: inline-block;
+    }
+
+    .leyenda {
+      margin-top: 1.2rem;
+      padding: 1rem;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .06);
+    }
+
+    .leyenda h3 {
+      margin-bottom: 0.5rem;
+      color: #283B0A;
+    }
+
+    .leyenda-item {
+      display: inline-block;
+      margin-right: 12px;
+      font-size: 0.9rem;
+    }
+
+    .color-box {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      margin-right: 4px;
+      border-radius: 4px;
+      vertical-align: middle;
+    }
+
+    .filtro-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 1rem 0;
+      padding: 0.75rem 1rem;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, .05);
+      font-size: 0.9rem;
+    }
+
+    .btn-clear {
+      background: #BAACEB;
+      border: none;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-clear:hover {
+      background: #5F5AA5;
+    }
+
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 600px;
+      position: relative;
+    }
+
+    .close-modal {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    footer {
+      background: #283B0A;
+      color: #fff;
+      text-align: center;
+      padding: 1rem;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+
+<body>
+  <header>🌸 BrotAR</header>
+
+  <div class="wrap">
+    <!-- Select -->
+    <div style="text-align:center; margin-top:12px;">
+      <select id="mesSelect" class="selector-mes" aria-label="Select month"></select>
+    </div>
+
+    <!-- Filter bar -->
+    <div class="filtro-bar" aria-hidden="false">
+      <div class="filtro-info" id="filtroInfo">Filter: none</div>
+      <div>
+        <button id="clearFilter" class="btn-clear" aria-label="Clear filter">Clear filter</button>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div id="leyenda" class="leyenda" role="list" aria-label="Phenological legend">
+      <h3>Phenological legend</h3>
+    </div>
+
+    <!-- Cards -->
+    <div id="cardsContainer" class="container" aria-live="polite"></div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="modal-content" role="document">
+      <button class="close-modal" id="closeModal" aria-label="Close">&times;</button>
+      <h2 id="modalTitle" style="color:#5E891B; margin-bottom:8px;">Region Information</h2>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <footer>
+      Proyecto creado para Nasa Space Challenge
+    </footer>
+
+
+
+  <script>
+    const datos = {
+      meses: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      etapas: {
+        brotacion: { nombre: "Budding", color: "#B8D062" },
+        floracion: { nombre: "Flowering", color: "#EAC800" },
+        fructificacion: { nombre: "Fruiting", color: "#EAD465" },
+        senescencia: { nombre: "Senescence", color: "#5E891B" },
+        reposo: { nombre: "Dormancy", color: "#5F5AA5" }
+      },
+      regiones: {
+        NOA: {
+          nombre: "NOA - Northwest Argentina",
+          imagen: "https://picsum.photos/id/1011/800/450",
+          descripcion: "Region with subtropical and Andean diversity. Phenology responds to monsoonal rains and variable altitudes.",
+          especies: [
+            "Olives: Budding in September-October, flowering in November, fruiting in summer.",
+            "Quinoa and corn: Cycles adapted to the high-Andean climate, senescence in autumn."
+          ],
+          fenologia: [
+            "fructificacion", "fructificacion", "senescencia", "senescencia",
+            "brotacion", "brotacion", "floracion", "floracion",
+            "fructificacion", "fructificacion", "senescencia", "senescencia"
+          ]
+        },
+        NEA: {
+          nombre: "NEA - Northeast Argentina",
+          imagen: "https://picsum.photos/id/1015/800/450",
+          descripcion: "Humid subtropical climate favors perennial crops. High biodiversity in the forests of Misiones and Corrientes.",
+          especies: [
+            "Yerba mate: Budding in spring, flowering in October-November, harvest in summer.",
+            "Citrus: Main fruiting in winter-spring."
+          ],
+          fenologia: [
+            "fructificacion", "fructificacion", "senescencia", "senescencia",
+            "brotacion", "brotacion", "floracion", "floracion",
+            "fructificacion", "fructificacion", "senescencia", "senescencia"
+          ]
+        },
+        Cuyo: {
+          nombre: "Cuyo",
+          imagen: "https://picsum.photos/id/1021/800/450",
+          descripcion: "Arid wine-producing region. Irrigation systems are key for precise cycles in Mendoza and San Juan.",
+          especies: [
+            "Grapevine: Budding in September, flowering in November, harvest in March.",
+            "Olives: Similar cycle, with fruiting in autumn."
+          ],
+          fenologia: [
+            "fructificacion", "fructificacion", "fructificacion", "senescencia",
+            "senescencia", "brotacion", "brotacion", "floracion",
+            "floracion", "fructificacion", "fructificacion", "senescencia"
+          ]
+        },
+        Pampeana: {
+          nombre: "Pampeana",
+          imagen: "https://picsum.photos/id/1025/800/450",
+          descripcion: "Humid Pampas: Intensive agriculture with annual cycles influenced by temperate climate and fertile soils.",
+          especies: [
+            "Soy: Sowing in October, flowering in December, harvest in April.",
+            "Wheat: Budding in winter, senescence in summer."
+          ],
+          fenologia: [
+            "senescencia", "senescencia", "brotacion", "brotacion",
+            "floracion", "floracion", "fructificacion", "fructificacion",
+            "senescencia", "senescencia", "senescencia", "brotacion"
+          ]
+        },
+        Patagonia: {
+          nombre: "Patagonia",
+          imagen: "https://picsum.photos/id/1031/800/450",
+          descripcion: "Cold and windy climate in Río Negro and Neuquén. Phenological cycles later than in the north of the country.",
+          especies: [
+            "Apples and pears: Late budding in October, flowering in November, harvest in February-March.",
+            "Temperate fruit trees: Prolonged senescence due to cold winters."
+          ],
+          fenologia: [
+            "senescencia", "senescencia", "senescencia", "senescencia",
+            "brotacion", "brotacion", "floracion", "fructificacion",
+            "fructificacion", "senescencia", "senescencia", "reposo"
+          ]
+        }
+      }
+    };
+
+    // Build month selector
+    const mesSelect = document.getElementById("mesSelect");
+    datos.meses.forEach((mes, i) => {
+      const opt = document.createElement("option");
+      opt.value = i;
+      opt.textContent = mes;
+      mesSelect.appendChild(opt);
+    });
+
+    const cardsContainer = document.getElementById("cardsContainer");
+    const filtroInfo = document.getElementById("filtroInfo");
+    const clearFilter = document.getElementById("clearFilter");
+    const modal = document.getElementById("modal");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalBody = document.getElementById("modalBody");
+    const closeModal = document.getElementById("closeModal");
+
+    let filtroMes = null;
+
+    function renderCards() {
+      cardsContainer.innerHTML = "";
+      Object.values(datos.regiones).forEach((reg) => {
+        const etapaActual = filtroMes !== null ? datos.etapas[reg.fenologia[filtroMes]].nombre : null;
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <img src="${reg.imagen}" alt="${reg.nombre}">
+          <div class="card-body">
+            <h4 class="card-title">${reg.nombre}</h4>
+            <p class="card-desc">${reg.descripcion}</p>
+            ${etapaActual ? `<span class="etapa" style="background:${datos.etapas[reg.fenologia[filtroMes]].color}">${etapaActual}</span>` : ""}
+          </div>
+        `;
+        card.addEventListener("click", () => showModal(reg));
+        cardsContainer.appendChild(card);
+      });
+    }
+
+    function showModal(region) {
+      modalTitle.textContent = region.nombre;
+      modalBody.innerHTML = `
+        <p>${region.descripcion}</p>
+        <h4>Main species:</h4>
+        <ul>${region.especies.map(e => `<li>${e}</li>`).join("")}</ul>
+        ${filtroMes !== null ? `<p><strong>Selected month:</strong> ${datos.meses[filtroMes]} - ${datos.etapas[region.fenologia[filtroMes]].nombre}</p>` : ""}
+      `;
+      modal.style.display = "flex";
+    }
+
+    closeModal.addEventListener("click", () => modal.style.display = "none");
+    window.addEventListener("click", e => { if (e.target === modal) modal.style.display = "none"; });
+
+    mesSelect.addEventListener("change", e => {
+      filtroMes = parseInt(e.target.value);
+      filtroInfo.textContent = `Filter: ${datos.meses[filtroMes]}`;
+      renderCards();
+    });
+
+    clearFilter.addEventListener("click", () => {
+      filtroMes = null;
+      mesSelect.value = "";
+      filtroInfo.textContent = "Filter: none";
+      renderCards();
+    });
+
+    // Render legend
+    const leyendaDiv = document.getElementById("leyenda");
+    Object.values(datos.etapas).forEach(et => {
+      const span = document.createElement("span");
+      span.className = "leyenda-item";
+      span.innerHTML = `<span class="color-box" style="background:${et.color}"></span>${et.nombre}`;
+      leyendaDiv.appendChild(span);
+    });
+
+    renderCards();
+  </script>
+</body>
+
+</html>
